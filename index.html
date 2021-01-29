@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Installation Finder</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDmPCgsfX1aB_idEyQm4TF48CYmOhpcXIE&callback=initMap&libraries=&v=weekly"
+      defer
+    ></script>
+    <style type="text/css">
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map {
+        height: 100%;
+      }
+
+      /* Optional: Makes the sample page fill the window. */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+      #floating-panel {
+        position: absolute;
+        top: 10px;
+        left: 20px;
+        z-index: 5;
+        background-color: #fff;
+        padding: 5px;
+        border: 1px solid #999;
+        text-align: center;
+        font-family: "Roboto", "sans-serif";
+        line-height: 30px;
+        padding-left: 10px;
+      }
+	  
+	  #information {
+		position: absolute;
+		font-size: 15px;
+        bottom: 20px;
+		left: 20px;
+        z-index: 5;
+        background-color: #fff;
+        padding: 5px;
+        border: 1px solid #999;
+        text-align: center;
+        font-family: "Roboto", "sans-serif";
+        line-height: number;
+        padding-left: 10px;
+		width: 200px;
+      } 
+		
+    </style>
+	<script>
+	
+      "use strict";
+	  var homeLat;
+	  var homeLng;
+	  var homeLatLng;
+	  var bases;
+	  var gmarkers = [];
+	  const proxyurl = "https://cors-anywhere.herokuapp.com/";
+	  const url = "https://api.npoint.io/043751f17e65f5c60585";
+	  
+	  document.addEventListener("DOMContentLoaded", function(event) {
+	  document.getElementById("submit").disabled = true;
+	  });
+	  
+	  fetch(proxyurl + url)
+	  .then(response => response.json())
+	  .then(data => bases = data)
+	  .then(document.addEventListener("DOMContentLoaded", function(event) {
+		document.getElementById("submit").disabled = false;
+	  }));
+	  
+      function initMap() {
+        var map = new google.maps.Map(document.getElementById("map"), {
+          zoom: 8,
+          center: {
+            lat: 32.966140409308295,
+            lng: -79.96618125887369,
+          },
+		  mapTypeControl: false,
+		  streetViewControl: false,
+        });
+        var geocoder = new google.maps.Geocoder();
+		const infowindow = new google.maps.InfoWindow();
+        
+		document.getElementById("address")
+			.addEventListener("keyup", function(event) {
+			event.preventDefault();
+			if (event.keyCode === 13) {
+				document.getElementById("submit").click();
+			}
+		});
+		
+		document
+          .getElementById("submit")
+          .addEventListener("click", function () {
+			removeMarkers();
+            geocodeAddress(geocoder, map, infowindow);
+          });
+      }
+
+      function geocodeAddress(geocoder, resultsMap, infowindow) {
+        var address = document.getElementById("address").value;
+        geocoder.geocode(
+          {
+            address: address,
+          },
+          function (results, status) {
+            if (status === "OK") {
+			  homeLat = results[0].geometry.location.lat();
+			  homeLng = results[0].geometry.location.lng();
+			  homeLatLng = results[0].geometry.location;
+			  computeDist(homeLatLng,resultsMap,results,infowindow);
+            } else {
+              alert(
+                "Geocode was not successful for the following reason: " + status
+              );
+            }
+          }
+        );
+      }
+	  
+	  function computeDist(homeLatLng, resultsMap, results, infowindow) {
+		
+		const R = 6371000; // metres
+		var phi1;
+		var phi2;
+		var deltaphi;
+		var deltalambda;
+		var lat1 = homeLatLng.lat();
+		var lng1 = homeLatLng.lng();
+		var lat2;
+		var lng2;
+		var a;
+		var c;
+		var dist;
+		var shortest = 10e10;
+		var place = "test";
+		var shortLat = 0;
+		var shortLng = 0;
+		
+		for (var i = 0; i < bases.length; i++) {
+			lat2 = bases[i].lat;
+			lng2 = bases[i].lng;
+
+			phi1 = lat1 * Math.PI/180; // φ, λ in radians
+			phi2 = lat2 * Math.PI/180;
+			deltaphi = (lat2-lat1) * Math.PI/180;
+			deltalambda = (lng2-lng1) * Math.PI/180;
+
+			a = Math.sin(deltaphi/2) * Math.sin(deltaphi/2) +
+				Math.cos(phi1) * Math.cos(phi2) *
+				Math.sin(deltalambda/2) * Math.sin(deltalambda/2);
+			c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+			
+			dist = R * c; // in metres
+			
+			if(dist<shortest) {
+				shortest = dist;
+				place = bases[i].loc;
+				shortLat = lat2;
+				shortLng = lng2;
+			}
+		}
+		
+		displayBase(shortest, place);
+		
+		resultsMap.setCenter({lat:shortLat, lng:shortLng});
+            const marker = new google.maps.Marker({
+				map: resultsMap,
+				position: {lat:shortLat, lng:shortLng},
+            });
+			gmarkers.push(marker);
+		infowindow.setContent(place);
+		infowindow.open(map, marker);
+	  }
+	  
+	  function displayBase (shortest,place) {
+		document.getElementById("information").textContent="The closest military installation to your destination is " + place;
+	  }
+
+	function removeMarkers(){
+		for(var i=0; i<gmarkers.length; i++){
+			gmarkers[i].setMap(null);
+		}
+	}
+	
+    </script>
+  </head>
+  <body>
+    <div id="floating-panel">
+		<legend>Enter leave address to find nearest installation</legend>
+      <input id="address" type="textbox" value="NNPTC" />
+      <input id="submit" type="button" value="Geocode" />
+    </div>
+	
+	<div id="information">Enter the address of your destination
+    </div>
+	
+    <div id="map"></div>
+  </body>
+</html>
